@@ -1,3 +1,5 @@
+const transformIgnorePatterns = require('@tn4consulting/shared-platform-standards/configs/jest.transform-ignore.cjs');
+
 module.exports = {
   displayName: 'job-bank-data-access',
   preset: '../../jest.preset.js',
@@ -12,7 +14,5 @@ module.exports = {
       },
     ],
   },
-  transformIgnorePatterns: [
-    'node_modules/(?!\\.pnpm|(@softarc|@jsverse|@tn4consulting)/|.*\\.mjs$)',
-  ],
+  transformIgnorePatterns,
 };

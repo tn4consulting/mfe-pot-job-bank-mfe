@@ -44,6 +44,18 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_READ_TOKEN }}
 
+      # Catches Native-Federation-shared-singleton drift (react/react-dom/
+      # shared-ui-scds-core/shared-federation-runtime/shared-federation-config
+      # vs mfe-pot-platform/platform-versions.json) before it becomes a
+      # silent runtime failure -- see
+      # mfe-pot/docs/plans/20260808-1200-multi-team-scale-governance.md.
+      # --check-critical-prs needs gh authenticated; GITHUB_TOKEN covers
+      # read-only PR listing on this repo with no extra secret.
+      - name: Check platform-versions.json alignment
+        run: pnpm run check:versions -- --check-critical-prs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Lint, test, build
         run: pnpm exec nx run-many -t lint,test,build --all
 
