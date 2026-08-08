@@ -32,10 +32,10 @@ if ! kind get clusters 2>/dev/null | grep -qx "$CLUSTER_NAME"; then
     --image kindest/node:v1.27.3
 fi
 
-if ! kubectl get ns ingress-nginx >/dev/null 2>&1; then
+if ! kubectl --context "kind-$CLUSTER_NAME" get ns ingress-nginx >/dev/null 2>&1; then
   echo "==> Installing ingress-nginx..."
-  kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
-  kubectl rollout status deployment/ingress-nginx-controller \
+  kubectl --context "kind-$CLUSTER_NAME" apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+  kubectl --context "kind-$CLUSTER_NAME" rollout status deployment/ingress-nginx-controller \
     --namespace ingress-nginx \
     --timeout=120s
 fi
@@ -62,7 +62,7 @@ echo "==> Updating Helm chart dependencies..."
 helm dependency update charts/job-bank-mfe
 
 echo "==> Deploying job-bank-mfe..."
-helm upgrade --install job-bank-mfe charts/job-bank-mfe \
+helm --kube-context "kind-$CLUSTER_NAME" upgrade --install job-bank-mfe charts/job-bank-mfe \
   -f charts/job-bank-mfe/values.yaml \
   -f charts/job-bank-mfe/values-kind.yaml \
   --wait --timeout 120s
@@ -74,9 +74,9 @@ helm upgrade --install job-bank-mfe charts/job-bank-mfe \
 # content indefinitely (confirmed the hard way: a redeploy silently kept
 # serving a pre-fix build). Force both deployments explicitly every run.
 echo "==> Restarting deployments to pick up the freshly built images..."
-kubectl rollout restart deployment/job-bank-mfe deployment/job-bank-bff
-kubectl rollout status deployment/job-bank-mfe --timeout=60s
-kubectl rollout status deployment/job-bank-bff --timeout=60s
+kubectl --context "kind-$CLUSTER_NAME" rollout restart deployment/job-bank-mfe deployment/job-bank-bff
+kubectl --context "kind-$CLUSTER_NAME" rollout status deployment/job-bank-mfe --timeout=60s
+kubectl --context "kind-$CLUSTER_NAME" rollout status deployment/job-bank-bff --timeout=60s
 
 echo "==> Waiting for ingress..."
 status=000
@@ -87,7 +87,7 @@ for i in $(seq 1 30); do
 done
 if [ "$status" != "200" ]; then
   echo "warning: job-bank-mfe isn't answering with 200 yet (last status: $status). Check with:" >&2
-  echo "  kubectl get pods,ingress" >&2
+  echo "  kubectl --context kind-$CLUSTER_NAME get pods,ingress" >&2
   exit 1
 fi
 
