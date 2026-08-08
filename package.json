@@ -60,6 +60,8 @@
     "@tn4consulting/shared-content-client": "^0.3.0",
     "@tn4consulting/shared-federation-config": "^0.7.0",
     "@tn4consulting/shared-i18n": "^1.1.0",
+    "@tn4consulting/shared-observability": "^0.1.0",
+    "@tn4consulting/shared-observability-server": "^0.1.0",
     "@tn4consulting/shared-runtime-config": "^0.1.4",
     "@tn4consulting/shared-session-cache": "^0.1.0",
     "@tn4consulting/shared-ui-scds-core": "^1.1.0",

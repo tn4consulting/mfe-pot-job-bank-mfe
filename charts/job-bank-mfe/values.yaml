@@ -24,6 +24,10 @@ frontend:
   runtimeConfig:
     jobBankBffBaseUrl: ""
     strapiBaseUrl: "http://cms.mfe-pot.local"
+    # Browser-reachable Ingress host, not in-cluster Service DNS (contrast
+    # with backend.env's OTEL_EXPORTER_OTLP_ENDPOINT below) -- see
+    # mfe-pot-platform/charts/otel-collector.
+    otelExporterOtlpEndpoint: "http://otel.mfe-pot.local"
 
 backend:
   name: job-bank-bff
@@ -49,6 +53,12 @@ backend:
     REDIS_URL: "redis://session-cache.default.svc.cluster.local:6379"
     MOCK_IDP_JWKS_URL: "http://mock-idp.default.svc.cluster.local:3005/.well-known/jwks.json"
     MOCK_IDP_ISSUER: "http://mock-idp.default.svc.cluster.local:3005"
+    # otel-collector is a separate Helm release in mfe-pot-platform (see its
+    # charts/otel-collector), same cross-Helm-release in-cluster Service DNS
+    # pattern as REDIS_URL above -- identical on kind and EKS, so this isn't
+    # overridden in values-eks.yaml.
+    OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.default.svc.cluster.local:4318"
+    OTEL_SERVICE_NAME: "job-bank-bff"
 
 ingress:
   host: job-bank-mfe.mfe-pot.local

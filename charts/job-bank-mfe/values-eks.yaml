@@ -22,17 +22,21 @@ frontend:
     pullPolicy: IfNotPresent
   runtimeConfig:
     strapiBaseUrl: "https://cms.aws.tn4consulting.com"
+    otelExporterOtlpEndpoint: "https://otel.aws.tn4consulting.com"
 
 backend:
   image:
     repository: 147318891438.dkr.ecr.ca-central-1.amazonaws.com/mfe-pot-job-bank-bff
     pullPolicy: IfNotPresent
-  # REDIS_URL/MOCK_IDP_JWKS_URL/MOCK_IDP_ISSUER deliberately NOT overridden
-  # here -- they're real in-cluster Service DNS names, identical on EKS and
-  # kind (see values.yaml).
+  # REDIS_URL/MOCK_IDP_JWKS_URL/MOCK_IDP_ISSUER/OTEL_EXPORTER_OTLP_ENDPOINT
+  # deliberately NOT overridden here -- they're real in-cluster Service DNS
+  # names, identical on EKS and kind (see values.yaml).
 
 ingress:
   host: job-bank-mfe.aws.tn4consulting.com
   tls:
     enabled: true
+    # letsencrypt-staging while iterating (avoids Let's Encrypt rate limits
+    # across repeated cluster destroy/recreate cycles); switch to
+    # letsencrypt-prod only right before an actual demo.
     clusterIssuer: letsencrypt-prod
