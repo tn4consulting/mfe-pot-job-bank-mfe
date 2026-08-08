@@ -26,12 +26,12 @@ WORKDIR /workspace
 ENV CI=true
 RUN corepack enable && corepack prepare pnpm@10.33.2 --activate
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml nx.json tsconfig.base.json tsconfig.json .npmrc ./
-COPY apps ./apps
-COPY libs ./libs
-COPY tools ./tools
 RUN --mount=type=secret,id=npm_token \
     --mount=type=cache,target=/root/.local/share/pnpm/store \
     NODE_AUTH_TOKEN="$(cat /run/secrets/npm_token)" pnpm install --frozen-lockfile --network-concurrency=4
+COPY apps ./apps
+COPY libs ./libs
+COPY tools ./tools
 RUN pnpm exec nx build job-bank-bff --configuration=production
 
 FROM node:22-alpine AS runtime
