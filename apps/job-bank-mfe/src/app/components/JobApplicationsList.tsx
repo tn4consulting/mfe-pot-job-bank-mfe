@@ -26,7 +26,7 @@ export interface JobApplicationsListProps {
    * applications data without re-implementing the fetch itself. Optional
    * and additive: every existing call site (this app's own `App.tsx`, and
    * any federated consumer that predates this prop) still works with zero
-   * props. Added for `mfe-pot-employment-life-events-mfe`'s guided-journey
+   * props. Added for `mfe-pot-life-events-mfe`'s guided-journey
    * checklist, which needs to know whether the citizen has already
    * applied to a job in order to mark that checklist item complete --
    * deliberately generic (just "here's what loaded"), not anything
@@ -59,7 +59,7 @@ export function JobApplicationsList({ onApplicationsLoaded }: JobApplicationsLis
   const listElRef = useRef<ScdsMultiColumnListElement | null>(null);
   // A ref, not a fetch-effect dependency: onApplicationsLoaded is commonly
   // passed as a fresh inline arrow function on every render (as
-  // employment-life-events-mfe's checklist does), and this component only
+  // life-events-mfe's checklist does), and this component only
   // fetches once per mount -- depending on the callback's identity would
   // either re-fetch on every consumer re-render or (if the lint rule were
   // suppressed) silently call a stale closure.
