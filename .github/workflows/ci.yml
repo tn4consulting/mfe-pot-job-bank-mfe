@@ -146,6 +146,21 @@ jobs:
 
       - uses: azure/setup-helm@v4
 
+      # job-bank-bff's readinessProbe (GET /ready) genuinely round-trips
+      # Redis now (see mfe-pot/TODO.md's "Design principles" section,
+      # principle 3/4) -- without a real session-cache reachable, the pod
+      # can never become Ready and `helm install --wait` below times out.
+      # This doesn't reintroduce a cross-repo *build* dependency (still
+      # only this repo's own image/chart is built and verified) -- just a
+      # real runtime one, same shape the real deploy-local.sh already
+      # requires.
+      - name: Deploy session-cache (dependency for job-bank-bff's real readiness check)
+        run: |
+          helm install session-cache mfe-pot-platform/charts/session-cache \
+            -f mfe-pot-platform/charts/session-cache/values.yaml \
+            -f mfe-pot-platform/charts/session-cache/values-kind.yaml \
+            --wait --timeout 60s
+
       - name: helm dependency update
         run: helm dependency update mfe-pot-job-bank-mfe/charts/job-bank-mfe
 
