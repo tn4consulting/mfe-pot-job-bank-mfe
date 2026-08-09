@@ -68,7 +68,7 @@
     "@tn4consulting/shared-observability-server": "^0.1.1",
     "@tn4consulting/shared-runtime-config": "^0.1.4",
     "@tn4consulting/shared-session-cache": "^0.1.0",
-    "@tn4consulting/shared-ui-scds-core": "^1.2.0",
+    "@tn4consulting/shared-ui-scds-core": "^1.3.0",
     "cors": "^2.8.6",
     "es-module-shims": "^2.8.0",
     "express": "^5.1.0",
