@@ -7,6 +7,7 @@ import type { JobApplication } from 'job-bank-data-access';
 import { HttpJobBankApiClient } from 'job-bank-data-access';
 import type { ScdsListColumn } from '@tn4consulting/shared-ui-scds-core';
 import type { ContentClient } from '@tn4consulting/shared-content-client';
+import { withRemoteParent } from '@tn4consulting/shared-observability';
 import { loadRuntimeConfig } from '../../runtime-config';
 import { assetBaseUrl } from '../asset-base-url';
 import { useLocale } from '@tn4consulting/shared-i18n';
@@ -33,6 +34,15 @@ export interface JobApplicationsListProps {
    * loss-of-job-specific; that framing lives entirely in the consumer.
    */
   onApplicationsLoaded?: (applications: JobApplication[]) => void;
+  /**
+   * A serialized W3C traceparent from the composing page's own root span
+   * (see @tn4consulting/shared-observability's startPageSpan), so this
+   * widget's own fetch to job-bank-bff joins that trace instead of
+   * starting a disconnected one -- see dashboard-mfe's Overview.tsx.
+   * Optional and harmless when absent -- withRemoteParent no-ops on
+   * undefined, same additive shape as onApplicationsLoaded above.
+   */
+  parentTraceparent?: string;
 }
 
 /**
@@ -50,7 +60,7 @@ export interface JobApplicationsListProps {
  * through the widget-loader's `ComponentType<Record<string, unknown>>`
  * signature (see shared-federation-runtime's `WidgetLoader` type).
  */
-export function JobApplicationsList({ onApplicationsLoaded }: JobApplicationsListProps = {}) {
+export function JobApplicationsList({ onApplicationsLoaded, parentTraceparent }: JobApplicationsListProps = {}) {
   const [applications, setApplications] = useState<JobApplication[] | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [contentClient, setContentClient] = useState<ContentClient | null>(null);
@@ -91,7 +101,9 @@ export function JobApplicationsList({ onApplicationsLoaded }: JobApplicationsLis
     let cancelled = false;
     loadRuntimeConfig(assetBaseUrl)
       .then((runtimeConfig) =>
-        new HttpJobBankApiClient(runtimeConfig.jobBankBffBaseUrl).getApplications(session.sub),
+        withRemoteParent(parentTraceparent, () =>
+          new HttpJobBankApiClient(runtimeConfig.jobBankBffBaseUrl).getApplications(session.sub),
+        ),
       )
       .then((result) => {
         if (!cancelled) {
@@ -108,7 +120,7 @@ export function JobApplicationsList({ onApplicationsLoaded }: JobApplicationsLis
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [parentTraceparent]);
 
   // A callback ref, not useRef+useEffect(() => {}, []): the mount point
   // below only renders once `applications` is non-null (preserving the

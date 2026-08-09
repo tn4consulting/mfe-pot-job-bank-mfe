@@ -13,8 +13,8 @@ type: application
 version: 0.1.0
 dependencies:
   - name: mfe-frontend-lib
-    version: 0.1.0
+    version: 0.2.0
     repository: "file://../../../mfe-pot-platform/charts/mfe-frontend-lib"
   - name: mfe-backend-lib
-    version: 0.1.0
+    version: 0.2.0
     repository: "file://../../../mfe-pot-platform/charts/mfe-backend-lib"

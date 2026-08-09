@@ -32,6 +32,12 @@ describe('job-bank-bff', () => {
     expect(res.status).toBe(200);
   });
 
+  it('reports ready when its own sessionCache round-trip succeeds', async () => {
+    const res = await request(app).get('/ready');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ status: 'ready' });
+  });
+
   it('lists job postings', async () => {
     const res = await request(app).get('/api/jobs');
     expect(res.status).toBe(200);
@@ -116,5 +122,37 @@ describe('job-bank-bff', () => {
     const res = await request(app).get('/api/applications').query({ applicantSub: 'mock-citizen-reset' });
     expect(res.status).toBe(200);
     expect(res.body).toEqual([]);
+  });
+});
+
+describe('job-bank-bff error handling', () => {
+  // A rejected sessionCache call (the real-world shape of "Redis is
+  // unreachable") should degrade gracefully, not surface Express's bare
+  // default 500 HTML page -- see app.ts's own last-resort error handler
+  // comment and mfe-pot/TODO.md's "Design principles" section,
+  // principle 5. jest.resetModules() + a fresh require is safe here (no
+  // React involved, unlike a frontend spec) -- see shared-observability's
+  // own spec file for the identical pattern.
+  beforeEach(() => {
+    jest.resetModules();
+  });
+
+  it('returns a degraded 503 envelope, not a bare 500, when sessionCache rejects', async () => {
+    jest.doMock('./config', () => ({
+      sessionCache: {
+        getJson: jest.fn().mockRejectedValue(new Error('ECONNREFUSED')),
+        setJson: jest.fn().mockRejectedValue(new Error('ECONNREFUSED')),
+        reset: jest.fn().mockRejectedValue(new Error('ECONNREFUSED')),
+        buildKey: (...parts: string[]) => parts.join(':'),
+      },
+      mockIdp: { jwksUrl: 'http://localhost/jwks', issuer: 'http://localhost', audience: 'test' },
+    }));
+
+    const { createApp } = require('./app');
+    const app = createApp();
+
+    const res = await request(app).get('/api/applications').query({ applicantSub: 'anyone' });
+    expect(res.status).toBe(503);
+    expect(res.body).toEqual({ error: 'Service temporarily unavailable', degraded: true });
   });
 });

@@ -1,6 +1,13 @@
 frontend:
   name: job-bank-mfe
+  # Generalizing the pattern proved live on employment-insurance-mfe --
+  # see mfe-pot/TODO.md's "Design principles" section, principles 3/4.
+  # Local kind default stays at 1 (limits resource pressure on a
+  # single-node dev cluster) -- values-eks.yaml bumps this to 2.
   replicaCount: 1
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
   image:
     repository: mfe-pot-job-bank-mfe
     tag: latest
@@ -31,7 +38,12 @@ frontend:
 
 backend:
   name: job-bank-bff
+  # 1 on kind, 2 on EKS (values-eks.yaml) -- see frontend.replicaCount above.
   replicaCount: 1
+  readinessPath: /ready
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
   image:
     repository: mfe-pot-job-bank-bff
     tag: latest
@@ -40,8 +52,7 @@ backend:
   servicePort: 3001
   # session-cache is a separate Helm release in mfe-pot-platform (see its
   # charts/session-cache), installed once independently of any per-app
-  # chart -- genuine cross-Helm-release in-cluster Service DNS, same
-  # pattern as dashboard-bff's JOB_BANK_BFF_URL/EMPLOYMENT_INSURANCE_BFF_URL.
+  # chart -- genuine cross-Helm-release in-cluster Service DNS.
   # MOCK_IDP_JWKS_URL/MOCK_IDP_ISSUER point at mfe-pot-platform's
   # charts/mock-idp release's own in-cluster Service DNS -- server-to-server
   # JWT verification traffic, same pattern as REDIS_URL below. MOCK_IDP_ISSUER

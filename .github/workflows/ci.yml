@@ -56,6 +56,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # Enforces the BFF/UI call-boundary design principles -- see
+      # mfe-pot/TODO.md's "Design principles" section and
+      # docs/PLATFORM_STANDARDS.md's "BFF boundary rules".
+      - name: Check BFF/UI call boundaries
+        run: pnpm run check:boundaries
+
       - name: Lint, test, build
         run: pnpm exec nx run-many -t lint,test,build --all
 
