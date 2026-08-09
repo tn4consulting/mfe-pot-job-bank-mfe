@@ -1,5 +1,8 @@
 {
   "auth": {
     "signInRequired": "Vous devez ouvrir une session pour rechercher et postuler à des emplois."
+  },
+  "errors": {
+    "contentUnavailable": "Le contenu de la page est temporairement indisponible."
   }
 }
