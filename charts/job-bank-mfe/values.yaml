@@ -3,7 +3,11 @@ frontend:
   # Generalizing the pattern proved live on employment-insurance-mfe --
   # see mfe-pot/TODO.md's "Design principles" section, principles 3/4.
   # Local kind default stays at 1 (limits resource pressure on a
-  # single-node dev cluster) -- values-eks.yaml bumps this to 2.
+  # single-node dev cluster). EKS stays at 1 too now -- the real
+  # cluster's 2 t3.medium nodes cap at 17 pods each (AWS VPC CNI ENI/IP
+  # limit, not CPU/memory), and doubling replicas across the family blew
+  # past that -- confirmed live (FailedScheduling: "Too many pods").
+  # See mfe-pot/TODO.md's "Design principles" section.
   replicaCount: 1
   podDisruptionBudget:
     enabled: false
@@ -38,7 +42,7 @@ frontend:
 
 backend:
   name: job-bank-bff
-  # 1 on kind, 2 on EKS (values-eks.yaml) -- see frontend.replicaCount above.
+  # 1 on both kind and EKS -- see frontend.replicaCount's comment above.
   replicaCount: 1
   readinessPath: /ready
   podDisruptionBudget:

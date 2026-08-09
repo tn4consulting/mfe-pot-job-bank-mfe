@@ -17,13 +17,6 @@
 # git-SHA-traceable image, never a value baked into a committed file.
 
 frontend:
-  # 2 replicas + a real PDB on EKS -- kind stays at 1 (values.yaml) to
-  # limit resource pressure on a single-node dev cluster. See
-  # mfe-pot/TODO.md's "Design principles" section, principles 3/4.
-  replicaCount: 2
-  podDisruptionBudget:
-    enabled: true
-    minAvailable: 1
   image:
     repository: 147318891438.dkr.ecr.ca-central-1.amazonaws.com/mfe-pot-job-bank-mfe
     pullPolicy: IfNotPresent
@@ -32,10 +25,6 @@ frontend:
     otelExporterOtlpEndpoint: "https://otel.aws.tn4consulting.com"
 
 backend:
-  replicaCount: 2
-  podDisruptionBudget:
-    enabled: true
-    minAvailable: 1
   image:
     repository: 147318891438.dkr.ecr.ca-central-1.amazonaws.com/mfe-pot-job-bank-bff
     pullPolicy: IfNotPresent
