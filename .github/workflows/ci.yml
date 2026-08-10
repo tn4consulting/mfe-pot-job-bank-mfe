@@ -240,8 +240,23 @@ jobs:
         id: ecr-login
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build and push job-bank-mfe image
+      # ECR repos here have immutable tags, and the tag is the commit SHA --
+      # re-triggering this job for a commit already deployed once (e.g.
+      # mfe-pot/tools/deploy-eks.sh re-pointing a freshly recreated cluster
+      # at already-built images) would otherwise fail the build-push step
+      # outright rather than just reusing what's already there.
+      - name: Check if job-bank-mfe image already exists in ECR
         if: steps.check.outputs.cluster_up == 'true'
+        id: image-exists-mfe
+        run: |
+          if aws ecr describe-images --repository-name mfe-pot-job-bank-mfe --image-ids imageTag=${{ github.sha }} >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build and push job-bank-mfe image
+        if: steps.check.outputs.cluster_up == 'true' && steps.image-exists-mfe.outputs.exists != 'true'
         uses: docker/build-push-action@v6
         with:
           context: mfe-pot-job-bank-mfe
@@ -251,8 +266,18 @@ jobs:
           secrets: |
             npm_token=${{ secrets.NPM_READ_TOKEN }}
 
-      - name: Build and push job-bank-bff image
+      - name: Check if job-bank-bff image already exists in ECR
         if: steps.check.outputs.cluster_up == 'true'
+        id: image-exists-bff
+        run: |
+          if aws ecr describe-images --repository-name mfe-pot-job-bank-bff --image-ids imageTag=${{ github.sha }} >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build and push job-bank-bff image
+        if: steps.check.outputs.cluster_up == 'true' && steps.image-exists-bff.outputs.exists != 'true'
         uses: docker/build-push-action@v6
         with:
           context: mfe-pot-job-bank-mfe
