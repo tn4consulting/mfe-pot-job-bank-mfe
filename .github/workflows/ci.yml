@@ -6,8 +6,19 @@ on:
   pull_request:
   # Lets mfe-pot/tools/deploy-eks.sh re-trigger this repo's deploy-eks job
   # on demand (e.g. right after a fresh cluster comes up) without needing
-  # a new commit -- Stage 2 otherwise only fires on a push to main.
-  workflow_dispatch: {}
+  # a new commit -- deploy-eks otherwise only fires on a push to main.
+  # Defaults to skip_build=true: a manual dispatch's whole point is usually
+  # "redeploy the commit that's already on main, using the image that same
+  # commit's own push-triggered run already published to GHCR" -- rerunning
+  # lint-test-build/build-images/kind-validation for that would be pure
+  # waste. mfe-pot/tools/build-all.sh explicitly passes skip_build=false
+  # for the opposite case: force a fresh build+publish without deploying.
+  workflow_dispatch:
+    inputs:
+      skip_build:
+        description: 'Skip lint/build/kind-validation and just deploy the already-published image (set false to force a rebuild without deploying)'
+        type: boolean
+        default: true
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -26,6 +37,7 @@ jobs:
   # from local dev (see CLAUDE.md). @tn4consulting/* resolves from GitHub
   # Packages via .npmrc; GITHUB_TOKEN works for same-org package reads.
   lint-test-build:
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.skip_build != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -80,6 +92,7 @@ jobs:
   # full design.
   build-images:
     needs: lint-test-build
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.skip_build != 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -122,6 +135,7 @@ jobs:
   # manual run it started as.
   kind-validation:
     needs: build-images
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.skip_build != 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout this repo
@@ -241,7 +255,23 @@ jobs:
   # deploy step fail loudly and routinely.
   deploy-eks:
     needs: [lint-test-build, kind-validation]
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    # always() is required here: on the default workflow_dispatch path
+    # (skip_build=true), lint-test-build/kind-validation are intentionally
+    # skipped by their own `if:` above, and a job's needs are only
+    # considered satisfied-by-default when every needed job actually
+    # succeeded -- without always(), GitHub would skip this job too. The
+    # two branches below re-derive the safety this would otherwise lose:
+    # on a real push, still require kind-validation to have genuinely
+    # succeeded (so a real lint/build/kind failure still blocks the real
+    # EKS deploy, exactly as before); on workflow_dispatch, only proceed
+    # when kind-validation was the *intentional* skip_build=true skip
+    # (result == 'skipped'), not some other event entirely -- and never
+    # when skip_build=false (mfe-pot/tools/build-all.sh's build-only mode,
+    # which must never deploy).
+    if: >-
+      always() && github.ref == 'refs/heads/main' && ((github.event_name == 'push' &&
+      needs.kind-validation.result == 'success') || (github.event_name == 'workflow_dispatch' &&
+      github.event.inputs.skip_build != 'false' && needs.kind-validation.result == 'skipped'))
     runs-on: ubuntu-latest
     permissions:
       id-token: write
