@@ -112,6 +112,9 @@ importers:
       '@tn4consulting/shared-platform-standards':
         specifier: ^0.2.0
         version: 0.2.0
+      '@tn4consulting/shared-remote-integrity':
+        specifier: ^0.2.0
+        version: 0.2.0
       '@types/cors':
         specifier: ^2.8.19
         version: 2.8.19
@@ -2688,6 +2691,10 @@ packages:
 
   '@tn4consulting/shared-platform-standards@0.2.0':
     resolution: {integrity: sha512-kRz2MNTx8p/ZSVeTuwGG6J1k6cPy7+Ktgoy74z/nh7oKMQ6eZcCk2iftlBXi5I+jPmsxSBJm3obqgCwTbq654w==, tarball: https://npm.pkg.github.com/download/@tn4consulting/shared-platform-standards/0.2.0/b64e4a6183a05887d541d4dde837ceb86e9a1f9b}
+    hasBin: true
+
+  '@tn4consulting/shared-remote-integrity@0.2.0':
+    resolution: {integrity: sha512-+6Lp/14s3cL0hKJoibeIdP5UHFcWRFtBv1SIHURpZyzVCvWAzxPWLqNwziVrJub52bZz4bu3Bsd1hEig4xAs6A==, tarball: https://npm.pkg.github.com/download/@tn4consulting/shared-remote-integrity/0.2.0/0948c0d7122343dee2fe58367ea2b5edc3013715}
     hasBin: true
 
   '@tn4consulting/shared-runtime-config@0.1.4':
@@ -9939,6 +9946,10 @@ snapshots:
       - supports-color
 
   '@tn4consulting/shared-platform-standards@0.2.0': {}
+
+  '@tn4consulting/shared-remote-integrity@0.2.0':
+    dependencies:
+      jose: 6.2.8
 
   '@tn4consulting/shared-runtime-config@0.1.4': {}
 

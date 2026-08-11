@@ -116,8 +116,16 @@ jobs:
           file: apps/job-bank-mfe/Dockerfile
           push: true
           tags: ghcr.io/tn4consulting/mfe-pot-job-bank-mfe:${{ github.sha }}
+          # REMOTE_SIGNING_KID is not secret (see the Dockerfile's own
+          # comment on this step) -- it's how a shell picks which
+          # trust-registry entry to verify a signature against, so it's a
+          # plain build-arg, not a second secret alongside
+          # remote_signing_key below.
+          build-args: |
+            REMOTE_SIGNING_KID=${{ vars.REMOTE_SIGNING_KID }}
           secrets: |
             npm_token=${{ secrets.NPM_READ_TOKEN }}
+            remote_signing_key=${{ secrets.REMOTE_SIGNING_PRIVATE_KEY }}
 
       - name: Build and push job-bank-bff image to GHCR
         uses: docker/build-push-action@v6

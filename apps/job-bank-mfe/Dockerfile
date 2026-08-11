@@ -54,6 +54,22 @@ COPY libs ./libs
 COPY tools ./tools
 RUN pnpm exec nx build job-bank-mfe --configuration=production
 
+# Signs the built federation manifest so a shell can verify it before
+# trusting/executing the code it points at -- see mfe-pot/docs/plans/
+# 20260811-1500-federation-remote-loading-integrity.md. The private key
+# never leaves this build container: mounted as a BuildKit secret file
+# (same pattern as npm_token above), read once by sign-remote-manifest,
+# never written into an image layer or the build cache. REMOTE_SIGNING_KID
+# is not secret -- it's how the shell picks which trust-registry entry to
+# verify against -- so it's a plain build arg, not a secret mount.
+ARG REMOTE_SIGNING_KID
+RUN --mount=type=secret,id=remote_signing_key \
+    pnpm exec sign-remote-manifest \
+      --dist dist/apps/job-bank-mfe/browser \
+      --remote-name job-bank-mfe \
+      --private-key /run/secrets/remote_signing_key \
+      --kid "$REMOTE_SIGNING_KID"
+
 FROM nginx:alpine AS runtime
 COPY tools/docker/nginx.conf /etc/nginx/conf.d/default.conf
 COPY tools/docker/frontend-entrypoint.sh /docker-entrypoint.d/40-mfe-pot-env.sh
