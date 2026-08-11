@@ -72,12 +72,56 @@ jobs:
       - name: Lint job-bank-bff
         run: pnpm exec nx run job-bank-bff:eslint:lint
 
-  # Stage 2: build both images, deploy this app's own Helm chart to an
-  # ephemeral kind cluster, and confirm it actually serves -- the
-  # kind-based validation stage from CLAUDE.md's Hosting section, now
-  # automated instead of the one-off manual run it started as.
-  kind-validation:
+  # Stage 1.5: build both images from source exactly once, push to GHCR
+  # (this repo's own GITHUB_TOKEN, no per-cloud credential needed). Both
+  # kind-validation and deploy-eks below pull-and-retag this single build
+  # instead of each independently rebuilding from source -- see
+  # /Users/martin/.claude/plans/create-a-plan-for-cozy-globe.md for the
+  # full design.
+  build-images:
     needs: lint-test-build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push job-bank-mfe image to GHCR
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/job-bank-mfe/Dockerfile
+          push: true
+          tags: ghcr.io/tn4consulting/mfe-pot-job-bank-mfe:${{ github.sha }}
+          secrets: |
+            npm_token=${{ secrets.NPM_READ_TOKEN }}
+
+      - name: Build and push job-bank-bff image to GHCR
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/job-bank-bff/Dockerfile
+          push: true
+          tags: ghcr.io/tn4consulting/mfe-pot-job-bank-bff:${{ github.sha }}
+          secrets: |
+            npm_token=${{ secrets.NPM_READ_TOKEN }}
+
+  # Stage 2: deploy this app's own Helm chart to an ephemeral kind cluster,
+  # and confirm it actually serves -- the kind-based validation stage from
+  # CLAUDE.md's Hosting section, now automated instead of the one-off
+  # manual run it started as.
+  kind-validation:
+    needs: build-images
     runs-on: ubuntu-latest
     steps:
       - name: Checkout this repo
@@ -96,27 +140,21 @@ jobs:
           repository: tn4consulting/mfe-pot-platform
           path: mfe-pot-platform
 
-      - uses: docker/setup-buildx-action@v3
-
-      - name: Build job-bank-mfe image
-        uses: docker/build-push-action@v6
+      - name: Login to GHCR
+        uses: docker/login-action@v3
         with:
-          context: mfe-pot-job-bank-mfe
-          file: mfe-pot-job-bank-mfe/apps/job-bank-mfe/Dockerfile
-          tags: mfe-pot-job-bank-mfe:kind
-          load: true
-          secrets: |
-            npm_token=${{ secrets.NPM_READ_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          # workflow-level permissions.packages: read already covers this
+          # pull -- this job has no job-level permissions override.
 
-      - name: Build job-bank-bff image
-        uses: docker/build-push-action@v6
-        with:
-          context: mfe-pot-job-bank-mfe
-          file: mfe-pot-job-bank-mfe/apps/job-bank-bff/Dockerfile
-          tags: mfe-pot-job-bank-bff:kind
-          load: true
-          secrets: |
-            npm_token=${{ secrets.NPM_READ_TOKEN }}
+      - name: Pull and retag images from GHCR for kind
+        run: |
+          docker pull ghcr.io/tn4consulting/mfe-pot-job-bank-mfe:${{ github.sha }}
+          docker tag ghcr.io/tn4consulting/mfe-pot-job-bank-mfe:${{ github.sha }} mfe-pot-job-bank-mfe:kind
+          docker pull ghcr.io/tn4consulting/mfe-pot-job-bank-bff:${{ github.sha }}
+          docker tag ghcr.io/tn4consulting/mfe-pot-job-bank-bff:${{ github.sha }} mfe-pot-job-bank-bff:kind
 
       # Pinned node image: this environment's Docker daemon (cgroup v1)
       # can't kubeadm-init kind's current default node image (built for
@@ -191,7 +229,8 @@ jobs:
           status=$(curl -s -o /dev/null -w '%{http_code}' -H "Host: job-bank-mfe.mfe-pot.local" "http://localhost/api/jobs")
           [ "$status" = "200" ]
 
-  # Stage 2: build+push real images to ECR and deploy to the real AWS EKS
+  # Stage 3: mirror the images build-images already pushed to GHCR into ECR
+  # (pull+retag+push, not a rebuild), and deploy to the real AWS EKS
   # cluster, on push to main only. See
   # mfe-pot/docs/plans/20260808-1500-mfe-pot-aws-eks-terraform.md for the
   # full design. The demo cluster is intentionally torn down between demos
@@ -207,6 +246,7 @@ jobs:
     permissions:
       id-token: write
       contents: read
+      packages: read
     steps:
       - name: Checkout this repo
         uses: actions/checkout@v4
@@ -240,6 +280,14 @@ jobs:
         id: ecr-login
         uses: aws-actions/amazon-ecr-login@v2
 
+      - name: Login to GHCR
+        if: steps.check.outputs.cluster_up == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       # ECR repos here have immutable tags, and the tag is the commit SHA --
       # re-triggering this job for a commit already deployed once (e.g.
       # mfe-pot/tools/deploy-eks.sh re-pointing a freshly recreated cluster
@@ -255,16 +303,12 @@ jobs:
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Build and push job-bank-mfe image
+      - name: Mirror job-bank-mfe image from GHCR to ECR
         if: steps.check.outputs.cluster_up == 'true' && steps.image-exists-mfe.outputs.exists != 'true'
-        uses: docker/build-push-action@v6
-        with:
-          context: mfe-pot-job-bank-mfe
-          file: mfe-pot-job-bank-mfe/apps/job-bank-mfe/Dockerfile
-          push: true
-          tags: ${{ steps.ecr-login.outputs.registry }}/mfe-pot-job-bank-mfe:${{ github.sha }}
-          secrets: |
-            npm_token=${{ secrets.NPM_READ_TOKEN }}
+        run: |
+          docker pull ghcr.io/tn4consulting/mfe-pot-job-bank-mfe:${{ github.sha }}
+          docker tag ghcr.io/tn4consulting/mfe-pot-job-bank-mfe:${{ github.sha }} ${{ steps.ecr-login.outputs.registry }}/mfe-pot-job-bank-mfe:${{ github.sha }}
+          docker push ${{ steps.ecr-login.outputs.registry }}/mfe-pot-job-bank-mfe:${{ github.sha }}
 
       - name: Check if job-bank-bff image already exists in ECR
         if: steps.check.outputs.cluster_up == 'true'
@@ -276,16 +320,12 @@ jobs:
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Build and push job-bank-bff image
+      - name: Mirror job-bank-bff image from GHCR to ECR
         if: steps.check.outputs.cluster_up == 'true' && steps.image-exists-bff.outputs.exists != 'true'
-        uses: docker/build-push-action@v6
-        with:
-          context: mfe-pot-job-bank-mfe
-          file: mfe-pot-job-bank-mfe/apps/job-bank-bff/Dockerfile
-          push: true
-          tags: ${{ steps.ecr-login.outputs.registry }}/mfe-pot-job-bank-bff:${{ github.sha }}
-          secrets: |
-            npm_token=${{ secrets.NPM_READ_TOKEN }}
+        run: |
+          docker pull ghcr.io/tn4consulting/mfe-pot-job-bank-bff:${{ github.sha }}
+          docker tag ghcr.io/tn4consulting/mfe-pot-job-bank-bff:${{ github.sha }} ${{ steps.ecr-login.outputs.registry }}/mfe-pot-job-bank-bff:${{ github.sha }}
+          docker push ${{ steps.ecr-login.outputs.registry }}/mfe-pot-job-bank-bff:${{ github.sha }}
 
       - name: Update kubeconfig
         if: steps.check.outputs.cluster_up == 'true'
